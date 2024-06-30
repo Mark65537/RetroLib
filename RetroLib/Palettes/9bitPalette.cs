@@ -2,7 +2,7 @@
 using System.Drawing;
 
 
-namespace RPalConvert
+namespace Palettes
 {
     /// <summary>
     /// Class to convert Bitmap RGB palette to 9 bit format.

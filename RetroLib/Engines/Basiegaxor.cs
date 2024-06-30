@@ -1,4 +1,6 @@
-﻿using System.Drawing;
+﻿using Palettes;
+using System.Drawing;
+using static RIConvert.Platforms.SegaGenesis;
 
 namespace RIConvert.engines
 {

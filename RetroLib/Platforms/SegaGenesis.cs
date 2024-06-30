@@ -1,7 +1,4 @@
-﻿using ImageMagick;
-using RPalConvert;
-using System.Drawing;
-using System.Text;
+﻿using System.Drawing;
 
 namespace RIConvert.Platforms
 {
@@ -12,6 +9,13 @@ namespace RIConvert.Platforms
     {
         const int TILE_SIZE = 8;//pixel
         const int MAX_TILE_SIZE = 32;//pixels
+
+        public enum SegaImgType
+        {
+            screen,
+            sprite,
+            window
+        }
 
         public static void ConvertChrToBmp(HashSet<Color> palette, Size size, string inFilePath, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
         {
