@@ -1,5 +1,6 @@
 ﻿using System.Data;
 using System.Drawing;
+using RetroLib.General;
 
 
 namespace Palettes

@@ -1,4 +1,5 @@
 ﻿using Palettes;
+using RetroLib.General;
 using System.Drawing;
 using static RIConvert.Platforms.SegaGenesis;
 
