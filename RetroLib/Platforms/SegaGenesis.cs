@@ -15,7 +15,8 @@ namespace RIConvert.Platforms
         {
             screen,
             sprite,
-            window
+            window,
+            font
         }
 
         public static void ConvertChrToBmp(HashSet<Color> palette, Size size, string inFilePath, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
@@ -116,12 +117,13 @@ namespace RIConvert.Platforms
         {
             if(segaImgType == SegaImgType.screen)
             {
-                List<int[,]> tiles = ConvertBitmapToBkgTiles(bmp, Palette.GetPalette(bmp));
+                List<int[,]> tiles = ConvertBitmapToBkgTiles(bmp);
+                //TODO добавить создпние тайловой карты
                 WriteTilesToBinary(tiles, outFilePath);
             }
             else if(segaImgType == SegaImgType.sprite)
             {
-                List<List<int[,]>> sprites = ConvertBitmapToSprTiles(bmp, Palette.GetPalette(bmp));
+                List<List<int[,]>> sprites = ConvertBitmapToSprTiles(bmp);
                 File.Delete(outFilePath);
                 int spriteIndex = 0;
                 foreach (List<int[,]> sprite in sprites)
@@ -146,14 +148,21 @@ namespace RIConvert.Platforms
                     WriteTilesToBinary(sprite, indexedOutFilePath);
                 }
             }
+            else if (segaImgType == SegaImgType.font)
+            {
+                List<int[,]> tiles = ConvertBitmapToBkgTiles(bmp);
+                WriteTilesToBinary(tiles, outFilePath);
+            }
             else
             {
                 throw new Exception("Данный тип не поддерживается");
             }
         }
-        public static List<int[,]> ConvertBitmapToBkgTiles(Bitmap bmp, HashSet<Color> palette)
+
+        public static List<int[,]> ConvertBitmapToBkgTiles(Bitmap bmp)
         {
-            List<int[,]> tiles = new();
+            List<int[,]> tiles = [];
+            HashSet<Color> palette = Palette.GetPalette(bmp);
 
             for (int y0 = 0; y0 < bmp.Height; y0 += 8)
             {
@@ -167,12 +176,14 @@ namespace RIConvert.Platforms
             return tiles;
         }
 
-        public static List<List<int[,]>> ConvertBitmapToSprTiles(Bitmap bmp, HashSet<Color> palette)
+        private static List<List<int[,]>> ConvertBitmapToSprTiles(Bitmap bmp)
         {
+
             int X = 0;
             int Y = 0;
-            List<int[,]> tiles = new();
-            List<List<int[,]>> sprites = new();
+            List<int[,]> tiles = [];
+            List<List<int[,]>> sprites = [];
+            HashSet<Color> palette = Palette.GetPalette(bmp);
 
             while (X < bmp.Width || Y < bmp.Height)
             {
@@ -210,17 +221,15 @@ namespace RIConvert.Platforms
 
         public static void WriteTilesToBinary(List<int[,]> tiles, string filePath)
         {
-            using (BinaryWriter writer = new BinaryWriter(File.Open(filePath, FileMode.Create)))
+            using BinaryWriter writer = new(File.Open(filePath, FileMode.Create));
+            foreach (var tile in tiles)
             {
-                foreach (var tile in tiles)
+                for (int i = 0; i < tile.GetLength(0); i++)
                 {
-                    for (int i = 0; i < tile.GetLength(0); i++)
+                    for (int j = 0; j < tile.GetLength(1); j += 2)
                     {
-                        for (int j = 0; j < tile.GetLength(1); j+=2)
-                        {
-                            int combinedValue = (tile[i, j] << 4) | tile[i, j+1];
-                            writer.Write((byte)combinedValue);
-                        }
+                        int combinedValue = (tile[i, j] << 4) | tile[i, j + 1];
+                        writer.Write((byte)combinedValue);
                     }
                 }
             }
@@ -272,7 +281,7 @@ namespace RIConvert.Platforms
         private static int[,] ExtractTileFromImage(Bitmap bmp, HashSet<Color> palette, int x0, int y0)
         {
             int[,] tile = new int[TILE_SIZE, TILE_SIZE];
-            List<Color> palList = palette.ToList();//TODO в дальнейшем желательно убрать
+            List<Color> palList = [.. palette];//TODO в дальнейшем желательно убрать
 
             for (int y = 0; y < TILE_SIZE; y++)
             {
