@@ -1,9 +1,9 @@
 ﻿using Palettes;
 using RetroLib.General;
 using System.Drawing;
-using static RIConvert.Platforms.SegaGenesis;
+using static RetroLib.Platforms.SegaGenesis;
 
-namespace RIConvert.engines
+namespace RetroLib.Engines
 {
     public class Basiegaxor
     {

@@ -1,7 +1,7 @@
 ﻿using RetroLib.General;
 using System.Drawing;
 
-namespace RIConvert.Platforms
+namespace RetroLib.Platforms
 {
     /// <summary>
     /// Здесь содержаться методы по преобразованию изображения относящиеся к консоли Sega Mega Drive
@@ -117,9 +117,10 @@ namespace RIConvert.Platforms
         {
             if(segaImgType == SegaImgType.screen)
             {
-                List<int[,]> tiles = ConvertBitmapToBkgTiles(bmp);
-                //TODO добавить создпние тайловой карты
-                WriteTilesToBinary(tiles, outFilePath);
+                throw new Exception("Данный тип не поддерживается");
+                //List<int[,]> tiles = ConvertBitmapToFontTiles(bmp);
+                //TODO добавить создание тайловой карты
+                //WriteTilesToBinary(tiles, outFilePath);
             }
             else if(segaImgType == SegaImgType.sprite)
             {
@@ -150,7 +151,7 @@ namespace RIConvert.Platforms
             }
             else if (segaImgType == SegaImgType.font)
             {
-                List<int[,]> tiles = ConvertBitmapToBkgTiles(bmp);
+                List<int[,]> tiles = ConvertBitmapToFontTiles(bmp);
                 WriteTilesToBinary(tiles, outFilePath);
             }
             else
@@ -159,7 +160,7 @@ namespace RIConvert.Platforms
             }
         }
 
-        public static List<int[,]> ConvertBitmapToBkgTiles(Bitmap bmp)
+        public static List<int[,]> ConvertBitmapToFontTiles(Bitmap bmp)
         {
             List<int[,]> tiles = [];
             HashSet<Color> palette = Palette.GetPalette(bmp);
@@ -187,7 +188,7 @@ namespace RIConvert.Platforms
 
             while (X < bmp.Width || Y < bmp.Height)
             {
-                Point startPoint = new Point(X, Y);
+                Point startPoint = new(X, Y);
                 Size spriteSize = GetMaxTileSize(startPoint, bmp.Size);
 
                 for (int x0 = startPoint.X; x0 < startPoint.X + spriteSize.Width; x0 += TILE_SIZE)

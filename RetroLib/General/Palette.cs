@@ -9,7 +9,7 @@ namespace RetroLib.General
         //TODO что делать с этой функцией
         private static Color GetMostFrequentColor(Bitmap bmp)
         {
-            List<Color> colors = new List<Color>();
+            List<Color> colors = [];
 
             for (int x = 0; x < bmp.Width; x++)
             {
@@ -237,11 +237,20 @@ namespace RetroLib.General
             }
             return newBitmap;
         }
-        public static HashSet<Color> GetPalette(Bitmap bmp, int convColorsCount = -1)
+        /// <summary>
+        /// Сначала извлекается палитра быстрым способом, если задан maxColorsCount, то береться прямой способ
+        /// </summary>
+        /// <param name="bmp"></param>
+        /// <param name="maxColorsCount">Максимальное доступное колличество цветов в палитре</param>
+        /// <returns></returns>
+        public static HashSet<Color> GetPalette(Bitmap bmp, bool isFast = false)
         {
-            HashSet<Color> palette = GetPaletteFast(bmp);
-            // Получить палитру цветов из изображения
-            if (palette.Count == 0 && (convColorsCount == -1 || palette.Count != convColorsCount))
+            HashSet<Color> palette;
+            if (isFast)
+            {
+                palette = GetPaletteFast(bmp);//TODO работает быстро, но не надежно
+            }
+            else
             {
                 palette = GetPaletteStright(bmp);
             }
@@ -251,7 +260,7 @@ namespace RetroLib.General
         public static HashSet<Color> GetPaletteStright(Bitmap image)
         {
             // Create a HashSet to store the unique colors
-            HashSet<Color> uniqueColors = new HashSet<Color>();
+            HashSet<Color> uniqueColors = [];
 
             // Iterate over each pixel in the image
             for (int y = 0; y < image.Height; y++)
@@ -267,35 +276,49 @@ namespace RetroLib.General
             }
             return uniqueColors;
         }
-
         public static HashSet<Color> GetPalette(string filePath)
         {
             return GetPalette(new Bitmap(filePath));
         }
+
+        //TODO не всегда правильно показывает палитру. Добавить тест с тестовым изображением в тесте
+        /// <summary>
+        /// Быстрый способ получения палитры
+        /// </summary>
+        /// <param name="image"></param>
+        /// <returns></returns>
         public static HashSet<Color> GetPaletteFast(Bitmap image)
         {
-            HashSet<Color> uniqueColors = new HashSet<Color>();
+            HashSet<Color> uniqueColors = [];
             BitmapData bmpData = image.LockBits(new Rectangle(0, 0, image.Width, image.Height), ImageLockMode.ReadOnly, image.PixelFormat);
-            unsafe
+            try
             {
-                byte* ptr = (byte*)bmpData.Scan0;
-                int bytesPerPixel = Image.GetPixelFormatSize(image.PixelFormat) / 8;
-                int heightInPixels = bmpData.Height;
-                int widthInBytes = bmpData.Width * bytesPerPixel;
-                for (int y = 0; y < heightInPixels; y++)
+                unsafe
                 {
-                    byte* currentLine = ptr + y * bmpData.Stride;
-                    for (int x = 0; x < widthInBytes; x = x + bytesPerPixel)
+                    byte* ptr = (byte*)bmpData.Scan0;
+                    int bytesPerPixel = Image.GetPixelFormatSize(image.PixelFormat) / 8;
+                    int heightInPixels = bmpData.Height;
+                    int widthInPixels = bmpData.Width;
+
+                    for (int y = 0; y < heightInPixels; y++)
                     {
-                        int b = currentLine[x];
-                        int g = currentLine[x + 1];
-                        int r = currentLine[x + 2];
-                        int a = bytesPerPixel > 3 ? currentLine[x + 3] : 255; // If 32bpp
-                        uniqueColors.Add(Color.FromArgb(a, r, g, b));
+                        byte* currentLine = ptr + y * bmpData.Stride;
+                        for (int x = 0; x < widthInPixels; x++)
+                        {
+                            int pixelIndex = x * bytesPerPixel;
+                            int b = currentLine[pixelIndex];
+                            int g = currentLine[pixelIndex + 1];
+                            int r = currentLine[pixelIndex + 2];
+                            int a = bytesPerPixel > 3 ? currentLine[pixelIndex + 3] : 255; // Если формат 32bpp
+                            uniqueColors.Add(Color.FromArgb(a, r, g, b));
+                        }
                     }
                 }
             }
-            image.UnlockBits(bmpData);
+            finally
+            {
+                image.UnlockBits(bmpData);
+            }
             return uniqueColors;
         }
 
