@@ -1,5 +1,6 @@
 ﻿using RetroLib.General;
 using System.Drawing;
+using System.Text;
 
 namespace RetroLib.Platforms
 {
@@ -48,7 +49,10 @@ namespace RetroLib.Platforms
 
             HashSet<Color> palette = Palette.GetPalette(bitmap);
             List<int[,]> tiles = GetUniqueTiles(bitmap, palette, HTileCount, VTileCount);
+            List<int> tileMap = GetTileMap(bitmap);
 
+            WriteTilesToBinary(tiles, writer);
+            WriteTileMapToBinary(tileMap, writer);
         }
 
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap)
@@ -134,6 +138,79 @@ namespace RetroLib.Platforms
             return uniqueTiles;
         }
 
+        public static List<int> GetTileMap(Bitmap bitmap, int tileWidth = 8, int tileHeight = 8)
+        {
+            ArgumentNullException.ThrowIfNull(bitmap);
+
+            if (tileWidth <= 0 || tileHeight <= 0)
+                throw new ArgumentException("Tile dimensions must be positive.");
+
+            // Список уникальных тайлов (каждый тайл — это int[,])
+            List<int[,]> uniqueTiles = [];
+
+            // Словарь для быстрого поиска индекса тайла (ключ — строковое представление тайла)
+            Dictionary<string, int> tileIndices = [];
+
+            // Результирующий список индексов тайлов
+            List<int> tileMap = new List<int>();
+
+            int widthInTiles = bitmap.Width / tileWidth;
+            int heightInTiles = bitmap.Height / tileHeight;
+
+            for (int y = 0; y < heightInTiles; y++)
+            {
+                for (int x = 0; x < widthInTiles; x++)
+                {
+                    // Создаём тайл
+                    int[,] tile = new int[tileHeight, tileWidth];
+
+                    // Заполняем тайл ARGB-значениями пикселей
+                    for (int ty = 0; ty < tileHeight; ty++)
+                    {
+                        for (int tx = 0; tx < tileWidth; tx++)
+                        {
+                            int pixelX = x * tileWidth + tx;
+                            int pixelY = y * tileHeight + ty;
+
+                            if (pixelX < bitmap.Width && pixelY < bitmap.Height)
+                            {
+                                Color pixel = bitmap.GetPixel(pixelX, pixelY);
+                                tile[ty, tx] = pixel.ToArgb();
+                            }
+                        }
+                    }
+
+                    // Преобразуем тайл в строку для быстрого сравнения
+                    string tileKey = TileToString(tile);
+
+                    // Если тайл новый — добавляем в список уникальных
+                    if (!tileIndices.ContainsKey(tileKey))
+                    {
+                        tileIndices[tileKey] = uniqueTiles.Count;
+                        uniqueTiles.Add(tile);
+                    }
+
+                    // Добавляем индекс тайла в карту
+                    tileMap.Add(tileIndices[tileKey]);
+                }
+            }
+
+            return tileMap;
+        }
+
+        // Преобразует тайл в строку для использования в Dictionary
+        private static string TileToString(int[,] tile)
+        {
+            StringBuilder sb = new();
+            for (int i = 0; i < tile.GetLength(0); i++)
+            {
+                for (int j = 0; j < tile.GetLength(1); j++)
+                {
+                    sb.Append(tile[i, j].ToString("X8")); // Формат ARGB в HEX
+                }
+            }
+            return sb.ToString();
+        }
 
         public static void ConvertChrToBmp(HashSet<Color> palette, Size size, string inFilePath, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
         {
@@ -335,10 +412,14 @@ namespace RetroLib.Platforms
             return sprites;
         }
 
-
         public static void WriteTilesToBinary(List<int[,]> tiles, string filePath)
         {
             using BinaryWriter writer = new(File.Open(filePath, FileMode.Create));
+            WriteTilesToBinary(tiles, writer);
+        }
+
+        public static void WriteTilesToBinary(List<int[,]> tiles, BinaryWriter writer)
+        {
             foreach (var tile in tiles)
             {
                 for (int i = 0; i < tile.GetLength(0); i++)
@@ -350,6 +431,34 @@ namespace RetroLib.Platforms
                     }
                 }
             }
+        }
+
+        public static void WriteTileMapToBinary(List<int> tileMap, string filePath)
+        {
+            using BinaryWriter writer = new(File.Open(filePath, FileMode.Create));
+            WriteTileMapToBinary(tileMap, writer);
+        }
+
+        public static void WriteTileMapToBinary(List<int> tileMap, BinaryWriter writer)
+        {
+            if (tileMap == null)
+                throw new ArgumentNullException(nameof(tileMap));
+
+            foreach (int tileIndex in tileMap)
+            {
+                if (tileIndex < 0 || tileIndex > ushort.MaxValue)
+                    throw new ArgumentOutOfRangeException(
+                        nameof(tileMap),
+                        $"Tile index {tileIndex} is out of range (0-{ushort.MaxValue})."
+                    );
+
+                // Записываем int как 2 байта (ushort, big-endian)
+                byte[] bytes = BitConverter.GetBytes((ushort)tileIndex);
+                if (BitConverter.IsLittleEndian)
+                    Array.Reverse(bytes);
+                writer.Write(bytes);
+            }
+
         }
 
 
