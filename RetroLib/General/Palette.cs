@@ -248,7 +248,7 @@ namespace RetroLib.General
             HashSet<Color> palette;
             if (isFast)
             {
-                palette = GetPaletteFast(bmp);//TODO работает быстро, но не надежно
+                palette = GetPaletteFast(bmp);//NOTE: работает быстро, но не надежно
             }
             else
             {

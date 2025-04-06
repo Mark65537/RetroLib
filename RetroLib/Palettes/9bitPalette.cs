@@ -1,6 +1,6 @@
-﻿using System.Data;
+﻿using RetroLib.General;
+using System.Data;
 using System.Drawing;
-using RetroLib.General;
 
 
 namespace Palettes
@@ -125,7 +125,7 @@ namespace Palettes
         }
 
         /// <summary>
-        /// Converts a color to 9 bit format.
+        /// Converts a RGB color to 9 bit format.
         /// </summary>
         /// <param name="color">Color to convert.</param>
         /// <returns>9 bit color.</returns>

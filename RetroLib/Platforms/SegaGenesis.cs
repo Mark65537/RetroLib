@@ -19,6 +19,122 @@ namespace RetroLib.Platforms
             font
         }
 
+        public static void ConvertBmpToBkg(Bitmap bitmap, string outFilePath)
+        {
+            using FileStream fs = new(outFilePath, FileMode.Create);
+            using BinaryWriter writer = new(fs);
+            writer.Write(['B', 'K', 'G', '\0']); // Signature
+            writer.Write((ushort)0x0101); // Version
+
+            ushort OptimCount = 0;
+            byte[] optimCountBytes = BitConverter.GetBytes(OptimCount);
+            Array.Reverse(optimCountBytes);
+            writer.Write(optimCountBytes, 0, 2);
+
+            int HTileCount = bitmap.Width / TILE_SIZE;
+            byte[] widthBytes = BitConverter.GetBytes((ushort)HTileCount);
+            Array.Reverse(widthBytes);
+            writer.Write(widthBytes, 0, 2);
+
+            int VTileCount = bitmap.Width / TILE_SIZE;
+            byte[] heightBytes = BitConverter.GetBytes((ushort)VTileCount);
+            Array.Reverse(heightBytes);
+            writer.Write(heightBytes, 0, 2);
+
+            ushort Planes = 1;
+            byte[] planesBytes = BitConverter.GetBytes(Planes);
+            Array.Reverse(planesBytes);
+            writer.Write(planesBytes, 0, 2);
+
+            HashSet<Color> palette = Palette.GetPalette(bitmap);
+            List<int[,]> tiles = GetUniqueTiles(bitmap, palette, HTileCount, VTileCount);
+
+        }
+
+        public static List<int[,]> GetUniqueTiles(Bitmap bitmap)
+        {
+            ArgumentNullException.ThrowIfNull(bitmap);
+
+            HashSet<Color> palette = Palette.GetPalette(bitmap);
+
+            int widthInTiles = bitmap.Width / TILE_SIZE;
+            int heightInTiles = bitmap.Height / TILE_SIZE;
+
+            return GetUniqueTiles(bitmap, palette, widthInTiles, heightInTiles);
+        }
+
+        public static List<int[,]> GetUniqueTiles(Bitmap bitmap, HashSet<Color> palette)
+        {
+            ArgumentNullException.ThrowIfNull(bitmap);
+
+            int widthInTiles = bitmap.Width / TILE_SIZE;
+            int heightInTiles = bitmap.Height / TILE_SIZE;
+
+            return GetUniqueTiles(bitmap, palette, widthInTiles, heightInTiles);
+        }
+
+        public static List<int[,]> GetUniqueTiles(Bitmap bitmap, HashSet<Color> palette, int widthInTiles, int heightInTiles)
+        {
+            ArgumentNullException.ThrowIfNull(bitmap);
+
+            List<int[,]> uniqueTiles = [];
+            List<Color> palList = [.. palette];
+
+            for (int y = 0; y < heightInTiles; y++)
+            {
+                for (int x = 0; x < widthInTiles; x++)
+                {
+                    int[,] tile = new int[TILE_SIZE, TILE_SIZE];
+
+                    // Заполняем тайл пикселями
+                    for (int ty = 0; ty < TILE_SIZE; ty++)
+                    {
+                        for (int tx = 0; tx < TILE_SIZE; tx++)
+                        {
+                            int pixelX = x * TILE_SIZE + tx;
+                            int pixelY = y * TILE_SIZE + ty;
+
+                            if (pixelX < bitmap.Width && pixelY < bitmap.Height)
+                            {
+                                Color pixel = bitmap.GetPixel(pixelX, pixelY);
+                                tile[ty, tx] = palList.IndexOf(pixel);
+                            }
+                        }
+                    }
+
+                    // Проверяем, есть ли такой тайл уже в списке
+                    bool isUnique = true;
+                    foreach (var existingTile in uniqueTiles)
+                    {
+                        bool tilesEqual = true;
+                        for (int i = 0; i < TILE_SIZE && tilesEqual; i++)
+                        {
+                            for (int j = 0; j < TILE_SIZE && tilesEqual; j++)
+                            {
+                                if (tile[i, j] != existingTile[i, j])
+                                {
+                                    tilesEqual = false;
+                                }
+                            }
+                        }
+                        if (tilesEqual)
+                        {
+                            isUnique = false;
+                            break;
+                        }
+                    }
+
+                    if (isUnique)
+                    {
+                        uniqueTiles.Add(tile);
+                    }
+                }
+            }
+
+            return uniqueTiles;
+        }
+
+
         public static void ConvertChrToBmp(HashSet<Color> palette, Size size, string inFilePath, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
         {
             long expectedFileSize = (size.Width * size.Height) / 2;
@@ -33,7 +149,7 @@ namespace RetroLib.Platforms
             }
 
             Bitmap bmp = new(size.Width, size.Height);
-            
+
             if (segaImgType == SegaImgType.screen)
             {
                 List<int[,]> tiles = ReadTilesFromBinary(inFilePath, size);
@@ -54,7 +170,7 @@ namespace RetroLib.Platforms
                         }
                     }
 
-                    if(bmpY + TILE_SIZE < size.Height)
+                    if (bmpY + TILE_SIZE < size.Height)
                     {
                         bmpY += TILE_SIZE;
                     }
@@ -65,13 +181,13 @@ namespace RetroLib.Platforms
                     }
                 }
 
-                bmp.Save(outFilePath);                
+                bmp.Save(outFilePath);
             }
         }
 
         private static List<int[,]> ReadTilesFromBinary(string inFilePath, Size size)
         {
-            List<int[,]> tiles = new();
+            List<int[,]> tiles = [];
             int tilesPerRow = size.Width / TILE_SIZE;
             int tilesPerColumn = size.Height / TILE_SIZE;
             int totalTiles = tilesPerRow * tilesPerColumn;
@@ -115,14 +231,14 @@ namespace RetroLib.Platforms
 
         public static void ConvertBmpToChr(Bitmap bmp, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
         {
-            if(segaImgType == SegaImgType.screen)
+            if (segaImgType == SegaImgType.screen)
             {
                 throw new Exception("Данный тип не поддерживается");
                 //List<int[,]> tiles = ConvertBitmapToFontTiles(bmp);
                 //TODO добавить создание тайловой карты
                 //WriteTilesToBinary(tiles, outFilePath);
             }
-            else if(segaImgType == SegaImgType.sprite)
+            else if (segaImgType == SegaImgType.sprite)
             {
                 List<List<int[,]>> sprites = ConvertBitmapToSprTiles(bmp);
                 File.Delete(outFilePath);
@@ -144,14 +260,14 @@ namespace RetroLib.Platforms
                     //    patterns = patterns,
                     //    palette = hexPalette
                     //};
-                    string indexedOutFilePath = Path.Combine(Path.GetDirectoryName(outFilePath), 
+                    string indexedOutFilePath = Path.Combine(Path.GetDirectoryName(outFilePath),
                         $"{Path.GetFileNameWithoutExtension(outFilePath)}_{spriteIndex++}{Path.GetExtension(outFilePath)}");//не заменять на Path.GetDirectoryName(outFilePath)}\\
                     WriteTilesToBinary(sprite, indexedOutFilePath);
                 }
             }
             else if (segaImgType == SegaImgType.font)
             {
-                List<int[,]> tiles = ConvertBitmapToFontTiles(bmp);
+                List<int[,]> tiles = GetTilesFromBitmap(bmp);
                 WriteTilesToBinary(tiles, outFilePath);
             }
             else
@@ -160,7 +276,7 @@ namespace RetroLib.Platforms
             }
         }
 
-        public static List<int[,]> ConvertBitmapToFontTiles(Bitmap bmp)
+        public static List<int[,]> GetTilesFromBitmap(Bitmap bmp)
         {
             List<int[,]> tiles = [];
             HashSet<Color> palette = Palette.GetPalette(bmp);
@@ -282,13 +398,13 @@ namespace RetroLib.Platforms
         private static int[,] ExtractTileFromImage(Bitmap bmp, HashSet<Color> palette, int x0, int y0)
         {
             int[,] tile = new int[TILE_SIZE, TILE_SIZE];
-            List<Color> palList = [.. palette];//TODO в дальнейшем желательно убрать
+            List<Color> palList = [.. palette];//TODO: в дальнейшем желательно убрать
 
             for (int y = 0; y < TILE_SIZE; y++)
             {
                 for (int x = 0; x < TILE_SIZE; x++)
                 {
-                    if (x0 + x >= bmp.Width || y0 + y >= bmp.Height)//TODO поменять местами условия?
+                    if (x0 + x >= bmp.Width || y0 + y >= bmp.Height)//TODO: поменять местами условия?
                     {
                         tile[y, x] = 0;
                     }
