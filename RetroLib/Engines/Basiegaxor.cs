@@ -1,5 +1,5 @@
-﻿using Palettes;
-using RetroLib.General;
+﻿using RetroLib.General;
+using RetroLib.Palettes;
 using System.Drawing;
 using static RetroLib.Platforms.SegaGenesis;
 

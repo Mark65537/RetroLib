@@ -53,6 +53,7 @@ namespace RetroLib.Platforms
 
             WriteTilesToBinary(tiles, writer);
             WriteTileMapToBinary(tileMap, writer);
+            //
         }
 
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap)
@@ -441,8 +442,7 @@ namespace RetroLib.Platforms
 
         public static void WriteTileMapToBinary(List<int> tileMap, BinaryWriter writer)
         {
-            if (tileMap == null)
-                throw new ArgumentNullException(nameof(tileMap));
+            ArgumentNullException.ThrowIfNull(tileMap);
 
             foreach (int tileIndex in tileMap)
             {
@@ -458,8 +458,8 @@ namespace RetroLib.Platforms
                     Array.Reverse(bytes);
                 writer.Write(bytes);
             }
-
         }
+
 
 
 
