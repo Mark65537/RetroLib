@@ -1,4 +1,5 @@
 ﻿using RetroLib.General;
+using RetroLib.Palettes;
 using System.Drawing;
 using System.Text;
 
@@ -24,20 +25,26 @@ namespace RetroLib.Platforms
         {
             using FileStream fs = new(outFilePath, FileMode.Create);
             using BinaryWriter writer = new(fs);
+
+            int HTileCount = bitmap.Width / TILE_SIZE;
+            int VTileCount = bitmap.Height / TILE_SIZE;
+
+            HashSet<Color> palette = Palette.GetPalette(bitmap);
+            List<UInt16> palette9bit = _9bitPalette.ConvertColorsTo9bit(palette);
+            List<int[,]> tiles = GetUniqueTiles(bitmap, palette, HTileCount, VTileCount);
+            List<int> tileMap = GetTileMap(bitmap);
+
             writer.Write(['B', 'K', 'G', '\0']); // Signature
             writer.Write((ushort)0x0101); // Version
 
-            ushort OptimCount = 0;
-            byte[] optimCountBytes = BitConverter.GetBytes(OptimCount);
+            byte[] optimCountBytes = BitConverter.GetBytes((ushort)tiles.Count);
             Array.Reverse(optimCountBytes);
             writer.Write(optimCountBytes, 0, 2);
 
-            int HTileCount = bitmap.Width / TILE_SIZE;
             byte[] widthBytes = BitConverter.GetBytes((ushort)HTileCount);
             Array.Reverse(widthBytes);
             writer.Write(widthBytes, 0, 2);
 
-            int VTileCount = bitmap.Width / TILE_SIZE;
             byte[] heightBytes = BitConverter.GetBytes((ushort)VTileCount);
             Array.Reverse(heightBytes);
             writer.Write(heightBytes, 0, 2);
@@ -47,13 +54,10 @@ namespace RetroLib.Platforms
             Array.Reverse(planesBytes);
             writer.Write(planesBytes, 0, 2);
 
-            HashSet<Color> palette = Palette.GetPalette(bitmap);
-            List<int[,]> tiles = GetUniqueTiles(bitmap, palette, HTileCount, VTileCount);
-            List<int> tileMap = GetTileMap(bitmap);
 
             WriteTilesToBinary(tiles, writer);
             WriteTileMapToBinary(tileMap, writer);
-            //
+            WritePaletteToBinary(palette9bit, writer);
         }
 
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap)
@@ -460,7 +464,25 @@ namespace RetroLib.Platforms
             }
         }
 
+        public static void WritePaletteToBinary(List<UInt16> palette, string filePath)
+        {
+            using BinaryWriter writer = new(File.Open(filePath, FileMode.Create));
+            WritePaletteToBinary(palette, writer);
+        }
 
+        public static void WritePaletteToBinary(List<UInt16> palette, BinaryWriter writer)
+        {
+            if (palette == null || writer == null)
+                throw new ArgumentNullException();
+
+            foreach (UInt16 color in palette)
+            {
+                byte[] bytes = BitConverter.GetBytes(color);
+                if (BitConverter.IsLittleEndian)
+                    Array.Reverse(bytes);
+                writer.Write(bytes);
+            }
+        }
 
 
 

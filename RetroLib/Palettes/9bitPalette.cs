@@ -33,7 +33,7 @@ public class _9bitPalette
         var parts = bexContent.Split(',');
 
         // Создаём список для хранения шестнадцатеричных строк
-        List<string> hexValues = new List<string>();
+        List<string> hexValues = new();
 
         foreach (var part in parts)
         {
@@ -54,19 +54,17 @@ public class _9bitPalette
     public static void ExportToBin(Bitmap bmp, string outFilePath)
     {
         var palette = Palette.GetPalette(bmp);
-        List<int> colors = ConvertColorsTo9bit(palette);
+        List<UInt16> colors = ConvertColorsTo9bit(palette);
 
-        using (BinaryWriter writer = new BinaryWriter(File.Open(outFilePath, FileMode.Create)))
+        using BinaryWriter writer = new(File.Open(outFilePath, FileMode.Create));
+        foreach (var color in colors)
         {
-            foreach (var color in colors)
-            {
-                byte firstByte = (byte)(color >> 8);
-                byte sacondByte = (byte)color;
+            byte firstByte = (byte)(color >> 8);
+            byte sacondByte = (byte)color;
 
-                // Записываем два байта в файл
-                writer.Write(firstByte);  // Пишем старший байт
-                writer.Write(sacondByte);   // Пишем младший байт
-            }
+            // Записываем два байта в файл
+            writer.Write(firstByte);  // Пишем старший байт
+            writer.Write(sacondByte);   // Пишем младший байт
         }
     }
 
@@ -115,9 +113,9 @@ public class _9bitPalette
             Console.WriteLine("Warning: Color palette has more than 16 colors");
         }
 
-        List<int> palette9bit = ConvertColorsTo9bit(palette);
+        List<UInt16> palette9bit = ConvertColorsTo9bit(palette);
 
-        List<string> hexPalette = palette9bit.Select(x => $"${x:X3}").ToList();
+        List<string> hexPalette = [.. palette9bit.Select(x => $"${x:X3}")];
 
         string hexPaletteString = string.Join(", ", hexPalette);
 
@@ -143,7 +141,7 @@ public class _9bitPalette
     /// </summary>
     /// <param name="palette">Palette of colors to convert.</param>
     /// <returns>List of 9 bit colors.</returns>
-    public static List<int> ConvertColorsTo9bit(HashSet<Color> palette)
+    public static List<UInt16> ConvertColorsTo9bit(HashSet<Color> palette)
     {
         return [.. palette.Select(ConvertColorTo9bit)];
     }
@@ -169,11 +167,11 @@ public class _9bitPalette
     ///    Overall, this algorithm takes an RGB color value, divides each component by 32, and combines the components into a 16-bit representation.
     ///</remarks>
     ///</summary>
-    private static int ConvertColorTo9bit(Color color)
+    private static UInt16 ConvertColorTo9bit(Color color)
     {
-        return color.B >> 5 << 9 |
+        return (ushort)(color.B >> 5 << 9 |
                     color.G >> 5 << 5 |
-                        color.R >> 5 << 1;
+                        color.R >> 5 << 1);
     }
 
     /// <summary>
@@ -183,7 +181,7 @@ public class _9bitPalette
     /// <returns>A HashSet of Color objects.</returns>
     public static HashSet<Color> Convert9bitToColors(List<int> palette9bit)
     {
-        HashSet<Color> palette = new HashSet<Color>();
+        HashSet<Color> palette = [];
         foreach (var color9bit in palette9bit)
         {
             Color color = Convert9bitToColor(color9bit);
