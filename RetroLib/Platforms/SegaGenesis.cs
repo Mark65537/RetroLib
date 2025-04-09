@@ -1,4 +1,5 @@
-﻿using RetroLib.General;
+﻿using ImageMagick;
+using RetroLib.General;
 using RetroLib.Palettes;
 using System.Drawing;
 using System.Text;
@@ -265,6 +266,19 @@ namespace RetroLib.Platforms
 
                 bmp.Save(outFilePath);
             }
+        }
+
+        public static void ConvertPcxToBkg(string inFilePath, string outFilePath)
+        {
+            Bitmap bmp;
+            using var image = new MagickImage(inFilePath);
+            using (var ms = new MemoryStream())
+            {
+                image.Write(ms, MagickFormat.Bmp);
+                ms.Position = 0;
+                bmp = new Bitmap(ms);
+            }
+            ConvertBmpToBkg(bmp, outFilePath);
         }
 
         private static List<int[,]> ReadTilesFromBinary(string inFilePath, Size size)
