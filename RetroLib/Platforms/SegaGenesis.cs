@@ -30,10 +30,22 @@ namespace RetroLib.Platforms
             int HTileCount = bitmap.Width / TILE_SIZE;
             int VTileCount = bitmap.Height / TILE_SIZE;
 
+            List<List<int[,]>> tiles = [];
+            List<List<int>> tileMap = [];
+
             HashSet<Color> palette = Palette.GetPalette(bitmap);
             List<UInt16> palette9bit = _9bitPalette.ConvertColorsTo9bit(palette);
-            List<int[,]> tiles = GetUniqueTiles(bitmap, palette, HTileCount, VTileCount);
-            List<int> tileMap = GetTileMap(bitmap);
+            var (firstPal, sacondPal) = SplitPalette(palette);
+
+            tiles[0] = GetUniqueTiles(bitmap, firstPal, HTileCount, VTileCount);
+            if (sacondPal != null && sacondPal.Count > 0)
+                tiles[1] = GetUniqueTiles(bitmap, sacondPal, HTileCount, VTileCount);
+
+            tileMap[0] = GetTileMap(bitmap);
+            if (sacondPal != null && sacondPal.Count > 0)
+                tileMap[1] = GetTileMap(bitmap);
+
+            ushort Planes = (ushort)(palette9bit.Count < 16 ? 1 : 2);
 
             writer.Write(['B', 'K', 'G', '\0']); // Signature
             writer.Write((ushort)0x0101); // Version
@@ -50,7 +62,6 @@ namespace RetroLib.Platforms
             Array.Reverse(heightBytes);
             writer.Write(heightBytes, 0, 2);
 
-            ushort Planes = 1;
             byte[] planesBytes = BitConverter.GetBytes(Planes);
             Array.Reverse(planesBytes);
             writer.Write(planesBytes, 0, 2);
@@ -59,6 +70,30 @@ namespace RetroLib.Platforms
             WriteTilesToBinary(tiles, writer);
             WriteTileMapToBinary(tileMap, writer);
             WritePaletteToBinary(palette9bit, writer);
+        }
+
+        public static (HashSet<Color>, HashSet<Color>) SplitPalette(HashSet<Color> palette)
+        {
+            ArgumentNullException.ThrowIfNull(palette);
+
+            HashSet<Color> first16 = new(Math.Min(16, palette.Count));
+            HashSet<Color> remaining = [];
+
+            int count = 0;
+            foreach (var color in palette)
+            {
+                if (count < 16)
+                {
+                    first16.Add(color);
+                    count++;
+                }
+                else
+                {
+                    remaining.Add(color);
+                }
+            }
+
+            return (first16, remaining);
         }
 
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap)
@@ -82,13 +117,16 @@ namespace RetroLib.Platforms
 
             return GetUniqueTiles(bitmap, palette, widthInTiles, heightInTiles);
         }
-
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap, HashSet<Color> palette, int widthInTiles, int heightInTiles)
+        {
+            List<Color> palList = [.. palette];
+            return GetUniqueTiles(bitmap, palList, widthInTiles, heightInTiles);
+        }
+        public static List<int[,]> GetUniqueTiles(Bitmap bitmap, List<Color> palette, int widthInTiles, int heightInTiles)
         {
             ArgumentNullException.ThrowIfNull(bitmap);
 
             List<int[,]> uniqueTiles = [];
-            List<Color> palList = [.. palette];
 
             for (int y = 0; y < heightInTiles; y++)
             {
@@ -107,7 +145,7 @@ namespace RetroLib.Platforms
                             if (pixelX < bitmap.Width && pixelY < bitmap.Height)
                             {
                                 Color pixel = bitmap.GetPixel(pixelX, pixelY);
-                                tile[ty, tx] = palList.IndexOf(pixel);
+                                tile[ty, tx] = palette.IndexOf(pixel);
                             }
                         }
                     }
@@ -437,6 +475,13 @@ namespace RetroLib.Platforms
             WriteTilesToBinary(tiles, writer);
         }
 
+        public static void WriteTilesToBinary(List<List<int[,]>> tiles, BinaryWriter writer)
+        {
+            foreach (var tile in tiles)
+            {
+                WriteTilesToBinary(tile, writer);
+            }
+        }
         public static void WriteTilesToBinary(List<int[,]> tiles, BinaryWriter writer)
         {
             foreach (var tile in tiles)
@@ -458,6 +503,13 @@ namespace RetroLib.Platforms
             WriteTileMapToBinary(tileMap, writer);
         }
 
+        public static void WriteTileMapToBinary(List<List<int>> tileMap, BinaryWriter writer)
+        {
+            foreach (var tile in tileMap)
+            {
+                WriteTileMapToBinary(tile, writer);
+            }
+        }
         public static void WriteTileMapToBinary(List<int> tileMap, BinaryWriter writer)
         {
             ArgumentNullException.ThrowIfNull(tileMap);
@@ -482,6 +534,14 @@ namespace RetroLib.Platforms
         {
             using BinaryWriter writer = new(File.Open(filePath, FileMode.Create));
             WritePaletteToBinary(palette, writer);
+        }
+
+        public static void WritePaletteToBinary(List<List<UInt16>> palette, BinaryWriter writer)
+        {
+            foreach (var tile in palette)
+            {
+                WritePaletteToBinary(tile, writer);
+            }
         }
 
         public static void WritePaletteToBinary(List<UInt16> palette, BinaryWriter writer)

@@ -238,7 +238,7 @@ namespace RetroLib.General
             return newBitmap;
         }
         /// <summary>
-        /// Сначала извлекается палитра быстрым способом, если задан maxColorsCount, то береться прямой способ
+        /// Сначала извлекается палитра быстрым способом, то береться прямой способ
         /// </summary>
         /// <param name="bmp"></param>
         /// <param name="maxColorsCount">Максимальное доступное колличество цветов в палитре</param>
