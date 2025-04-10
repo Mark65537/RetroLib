@@ -30,34 +30,38 @@ namespace RetroLib.Platforms
             int HTileCount = bitmap.Width / TILE_SIZE;
             int VTileCount = bitmap.Height / TILE_SIZE;
 
-            List<List<int[,]>> tiles = [];
+            List<List<int[,]>> uniqTiles = [];
             List<List<int>> tileMap = [];
 
             HashSet<Color> palette = Palette.GetPalette(bitmap);
-            List<UInt16> palette9bit = _9bitPalette.ConvertColorsTo9bit(palette);
-            var (firstPal, sacondPal) = SplitPalette(palette);
+            var (firstPal, secondPal) = SplitPalette(palette);
+            List<UInt16> firstPal9bit = _9bitPalette.ConvertColorsTo9bit(firstPal);
+            List<UInt16> secondPal9bit = _9bitPalette.ConvertColorsTo9bit(secondPal);
 
-            tiles.Add(GetUniqueTiles(bitmap, firstPal, HTileCount, VTileCount));
-            if (sacondPal != null && sacondPal.Count > 0)
-                tiles.Add(GetUniqueTiles(bitmap, sacondPal, HTileCount, VTileCount));
+            uniqTiles.Add(GetUniqueTiles(bitmap, firstPal, HTileCount, VTileCount));//Layer B
+            if (secondPal != null && secondPal.Count > 0)
+                uniqTiles.Add(GetUniqueTiles(bitmap, secondPal, HTileCount, VTileCount));//Layer A
 
-            tileMap.Add(GetTileMap(bitmap));
-            if (sacondPal != null && sacondPal.Count > 0)
-                tileMap.Add(GetTileMap(bitmap));
 
-            ushort Planes = (ushort)(palette9bit.Count <= 16 ? 1 : 2);
+            tileMap.Add(GetTileMap(bitmap, uniqTiles[0], firstPal));
+            if (secondPal != null && secondPal.Count > 0)
+                tileMap.Add(GetTileMap(bitmap, uniqTiles[1], secondPal));
+
+            ushort Planes = 1;
+            if (secondPal != null && secondPal.Count > 0)
+                Planes = 2;
 
             writer.Write(['B', 'K', 'G', '\0']); // Signature
             writer.Write((ushort)0x0101); // Version
 
             UInt16 optimCount = 0;
-            if (tiles.Count > 1)
+            if (uniqTiles.Count > 1)
             {
-                optimCount = (UInt16)(tiles[0].Count + tiles[1].Count);
+                optimCount = (UInt16)(uniqTiles[0].Count + uniqTiles[1].Count);
             }
             else
             {
-                optimCount = (UInt16)tiles[0].Count;
+                optimCount = (UInt16)uniqTiles[0].Count;
             }
             byte[] optimCountBytes = BitConverter.GetBytes(optimCount);
             Array.Reverse(optimCountBytes);
@@ -76,9 +80,12 @@ namespace RetroLib.Platforms
             writer.Write(planesBytes, 0, 2);
 
 
-            WriteTilesToBinary(tiles, writer);
-            WriteTileMapToBinary(tileMap, writer);
-            WritePaletteToBinary(palette9bit, writer);
+            WriteTilesToBinary(uniqTiles, writer);
+            WriteTileMapToBinary(tileMap[0], writer);
+            if (tileMap.Count > 1)
+                WriteTileMapToBinary(tileMap[1], writer);
+            WritePaletteToBinary(firstPal9bit, writer);
+            WritePaletteToBinary(secondPal9bit, writer);
         }
 
         /// <summary>
@@ -105,6 +112,18 @@ namespace RetroLib.Platforms
                 {
                     remaining.Add(color);
                 }
+            }
+
+            // Если в remaining есть элементы, добавляем черный цвет в начало
+            if (remaining.Count > 0)
+            {
+                // Создаем новый HashSet с черным цветом в начале
+                var newRemaining = new HashSet<Color> { Color.Black };
+                foreach (var color in remaining)
+                {
+                    newRemaining.Add(color);
+                }
+                remaining = newRemaining;
             }
 
             return (first16, remaining);
@@ -142,6 +161,12 @@ namespace RetroLib.Platforms
             ArgumentNullException.ThrowIfNull(palette);
 
             List<int[,]> uniqueTiles = [];
+
+            if (palette.Count == 2)
+            {
+                uniqueTiles.Add(GetFillTile());
+                return uniqueTiles;
+            }
 
             for (int y = 0; y < heightInTiles; y++)
             {
@@ -203,64 +228,99 @@ namespace RetroLib.Platforms
             return uniqueTiles;
         }
 
-        public static List<int> GetTileMap(Bitmap bitmap, int tileWidth = 8, int tileHeight = 8)
+        private static int[,] GetFillTile()
+        {
+            int[,] tile = new int[TILE_SIZE, TILE_SIZE];
+
+            for (int ty = 0; ty < TILE_SIZE; ty++)
+            {
+                for (int tx = 0; tx < TILE_SIZE; tx++)
+                {
+                    tile[ty, tx] = 1;
+                }
+            }
+            return tile;
+        }
+
+        public static List<int> GetTileMap(Bitmap bitmap, List<int[,]> uniqueTiles, HashSet<Color> palette, int offset = 0)
         {
             ArgumentNullException.ThrowIfNull(bitmap);
 
-            if (tileWidth <= 0 || tileHeight <= 0)
-                throw new ArgumentException("Tile dimensions must be positive.");
+            List<int> tileMap = [];
+            List<Color> palList = [.. palette];
 
-            // Список уникальных тайлов (каждый тайл — это int[,])
-            List<int[,]> uniqueTiles = [];
 
-            // Словарь для быстрого поиска индекса тайла (ключ — строковое представление тайла)
-            Dictionary<string, int> tileIndices = [];
-
-            // Результирующий список индексов тайлов
-            List<int> tileMap = new List<int>();
-
-            int widthInTiles = bitmap.Width / tileWidth;
-            int heightInTiles = bitmap.Height / tileHeight;
+            int widthInTiles = bitmap.Width / TILE_SIZE;
+            int heightInTiles = bitmap.Height / TILE_SIZE;
 
             for (int y = 0; y < heightInTiles; y++)
             {
                 for (int x = 0; x < widthInTiles; x++)
                 {
-                    // Создаём тайл
-                    int[,] tile = new int[tileHeight, tileWidth];
+                    int[,] tile = new int[TILE_SIZE, TILE_SIZE];
 
-                    // Заполняем тайл ARGB-значениями пикселей
-                    for (int ty = 0; ty < tileHeight; ty++)
+                    // Заполняем тайл пикселями
+                    for (int ty = 0; ty < TILE_SIZE; ty++)
                     {
-                        for (int tx = 0; tx < tileWidth; tx++)
+                        for (int tx = 0; tx < TILE_SIZE; tx++)
                         {
-                            int pixelX = x * tileWidth + tx;
-                            int pixelY = y * tileHeight + ty;
+                            int pixelX = x * TILE_SIZE + tx;
+                            int pixelY = y * TILE_SIZE + ty;
 
                             if (pixelX < bitmap.Width && pixelY < bitmap.Height)
                             {
                                 Color pixel = bitmap.GetPixel(pixelX, pixelY);
-                                tile[ty, tx] = pixel.ToArgb();
+                                if (palList.IndexOf(pixel) < 0)
+                                {
+                                    tile[ty, tx] = 0;
+                                    continue;
+                                }
+                                tile[ty, tx] = palList.IndexOf(pixel);
+                            }
+                            else
+                            {
+                                tile[ty, tx] = 0;
                             }
                         }
                     }
 
-                    // Преобразуем тайл в строку для быстрого сравнения
-                    string tileKey = TileToString(tile);
-
-                    // Если тайл новый — добавляем в список уникальных
-                    if (!tileIndices.ContainsKey(tileKey))
-                    {
-                        tileIndices[tileKey] = uniqueTiles.Count;
-                        uniqueTiles.Add(tile);
-                    }
-
-                    // Добавляем индекс тайла в карту
-                    tileMap.Add(tileIndices[tileKey]);
+                    // Находим индекс тайла с помощью специального сравнения
+                    int tileIndex = FindTileIndex(uniqueTiles, tile);
+                    if (tileIndex < 0) tileIndex = 0 + offset;
+                    tileMap.Add(tileIndex + offset);
                 }
             }
 
             return tileMap;
+        }
+
+        private static int FindTileIndex(List<int[,]> uniqueTiles, int[,] tile)
+        {
+            for (int i = 0; i < uniqueTiles.Count; i++)
+            {
+                if (AreTilesEqual(uniqueTiles[i], tile))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+        private static bool AreTilesEqual(int[,] tile1, int[,] tile2)
+        {
+            if (tile1.GetLength(0) != tile2.GetLength(0) || tile1.GetLength(1) != tile2.GetLength(1))
+                return false;
+
+            for (int y = 0; y < tile1.GetLength(0); y++)
+            {
+                for (int x = 0; x < tile1.GetLength(1); x++)
+                {
+                    if (tile1[y, x] != tile2[y, x])
+                        return false;
+                }
+            }
+            return true;
         }
 
         // Преобразует тайл в строку для использования в Dictionary
@@ -570,8 +630,8 @@ namespace RetroLib.Platforms
             if (palette == null || writer == null)
                 throw new ArgumentNullException();
 
-            // Записываем первые 32 цвета (или все, если их меньше)
-            int colorsToWrite = Math.Min(palette.Count, 32);
+            // Записываем первые 16 цветов (или все, если их меньше)
+            int colorsToWrite = Math.Min(palette.Count, 16);
             for (int i = 0; i < colorsToWrite; i++)
             {
                 UInt16 color = palette[i];
@@ -581,11 +641,10 @@ namespace RetroLib.Platforms
                 writer.Write(bytes);
             }
 
-            // Дополняем до 32 цветов нулями (0x0000)
-            int remainingColors = 32 - colorsToWrite;
-            for (int i = 0; i < remainingColors; i++)
+            // Дополняем до 16 цветов нулями (0x0000)
+            for (int i = colorsToWrite; i < 16; i++)
             {
-                writer.Write(new byte[] { 0x00, 0x00 }); // 0x0000
+                writer.Write([0x00, 0x00]); // 0x0000
             }
         }
 
