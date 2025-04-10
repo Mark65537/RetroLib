@@ -37,20 +37,29 @@ namespace RetroLib.Platforms
             List<UInt16> palette9bit = _9bitPalette.ConvertColorsTo9bit(palette);
             var (firstPal, sacondPal) = SplitPalette(palette);
 
-            tiles[0] = GetUniqueTiles(bitmap, firstPal, HTileCount, VTileCount);
+            tiles.Add(GetUniqueTiles(bitmap, firstPal, HTileCount, VTileCount));
             if (sacondPal != null && sacondPal.Count > 0)
-                tiles[1] = GetUniqueTiles(bitmap, sacondPal, HTileCount, VTileCount);
+                tiles.Add(GetUniqueTiles(bitmap, sacondPal, HTileCount, VTileCount));
 
-            tileMap[0] = GetTileMap(bitmap);
+            tileMap.Add(GetTileMap(bitmap));
             if (sacondPal != null && sacondPal.Count > 0)
-                tileMap[1] = GetTileMap(bitmap);
+                tileMap.Add(GetTileMap(bitmap));
 
-            ushort Planes = (ushort)(palette9bit.Count < 16 ? 1 : 2);
+            ushort Planes = (ushort)(palette9bit.Count <= 16 ? 1 : 2);
 
             writer.Write(['B', 'K', 'G', '\0']); // Signature
             writer.Write((ushort)0x0101); // Version
 
-            byte[] optimCountBytes = BitConverter.GetBytes((ushort)tiles.Count);
+            UInt16 optimCount = 0;
+            if (tiles.Count > 1)
+            {
+                optimCount = (UInt16)(tiles[0].Count + tiles[1].Count);
+            }
+            else
+            {
+                optimCount = (UInt16)tiles[0].Count;
+            }
+            byte[] optimCountBytes = BitConverter.GetBytes(optimCount);
             Array.Reverse(optimCountBytes);
             writer.Write(optimCountBytes, 0, 2);
 
@@ -72,12 +81,17 @@ namespace RetroLib.Platforms
             WritePaletteToBinary(palette9bit, writer);
         }
 
+        /// <summary>
+        /// функция разделяет на 2 палитры по 16 цветов каждая
+        /// </summary>
+        /// <param name="palette"></param>
+        /// <returns></returns>
         public static (HashSet<Color>, HashSet<Color>) SplitPalette(HashSet<Color> palette)
         {
             ArgumentNullException.ThrowIfNull(palette);
 
-            HashSet<Color> first16 = new(Math.Min(16, palette.Count));
-            HashSet<Color> remaining = [];
+            HashSet<Color> first16 = new(16);
+            HashSet<Color> remaining = new(16);
 
             int count = 0;
             foreach (var color in palette)
@@ -125,6 +139,7 @@ namespace RetroLib.Platforms
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap, List<Color> palette, int widthInTiles, int heightInTiles)
         {
             ArgumentNullException.ThrowIfNull(bitmap);
+            ArgumentNullException.ThrowIfNull(palette);
 
             List<int[,]> uniqueTiles = [];
 
@@ -145,8 +160,14 @@ namespace RetroLib.Platforms
                             if (pixelX < bitmap.Width && pixelY < bitmap.Height)
                             {
                                 Color pixel = bitmap.GetPixel(pixelX, pixelY);
+                                if (palette.IndexOf(pixel) < 0)
+                                {
+                                    tile[ty, tx] = 0;
+                                    continue;
+                                }
                                 tile[ty, tx] = palette.IndexOf(pixel);
                             }
+                            //TODO: else
                         }
                     }
 
@@ -549,12 +570,22 @@ namespace RetroLib.Platforms
             if (palette == null || writer == null)
                 throw new ArgumentNullException();
 
-            foreach (UInt16 color in palette)
+            // Записываем первые 32 цвета (или все, если их меньше)
+            int colorsToWrite = Math.Min(palette.Count, 32);
+            for (int i = 0; i < colorsToWrite; i++)
             {
+                UInt16 color = palette[i];
                 byte[] bytes = BitConverter.GetBytes(color);
                 if (BitConverter.IsLittleEndian)
-                    Array.Reverse(bytes);
+                    Array.Reverse(bytes); // big-endian порядок байт
                 writer.Write(bytes);
+            }
+
+            // Дополняем до 32 цветов нулями (0x0000)
+            int remainingColors = 32 - colorsToWrite;
+            for (int i = 0; i < remainingColors; i++)
+            {
+                writer.Write(new byte[] { 0x00, 0x00 }); // 0x0000
             }
         }
 
