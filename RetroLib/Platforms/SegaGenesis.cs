@@ -162,26 +162,29 @@ namespace RetroLib.Platforms
 
             return GetUniqueTiles(bitmap, palette, widthInTiles, heightInTiles);
         }
-        public static List<int[,]> GetUniqueTiles(Bitmap bitmap, HashSet<Color> palette, int widthInTiles, int heightInTiles)
+        public static List<int[,]> GetUniqueTiles(Bitmap bitmap, HashSet<Color> palette, int widthInTiles, int heightInTiles, bool isReverse = false)
         {
             List<Color> palList = [.. palette];
             return GetUniqueTiles(bitmap, palList, widthInTiles, heightInTiles);
         }
-        public static List<int[,]> GetUniqueTiles(Bitmap bitmap, List<Color> palette, int widthInTiles, int heightInTiles)
+        public static List<int[,]> GetUniqueTiles(Bitmap bitmap, List<Color> palette, int widthInTiles, int heightInTiles, bool isReverse = false)
         {
             ArgumentNullException.ThrowIfNull(bitmap);
             ArgumentNullException.ThrowIfNull(palette);
 
             List<int[,]> uniqueTiles = [];
 
-            if (palette.Count == 2)
-            {
-                uniqueTiles.Add(GetFillTile());
-                return uniqueTiles;
-            }
+            //if (palette.Count == 2)
+            //{
+            //    uniqueTiles.Add(GetFillTile());
+            //    return uniqueTiles;
+            //}
 
             for (int y = 0; y < heightInTiles; y++)
             {
+                // Определяем реальную координату Y в зависимости от isReverse
+                int actualY = isReverse ? (heightInTiles - 1 - y) : y;
+
                 for (int x = 0; x < widthInTiles; x++)
                 {
                     int[,] tile = new int[TILE_SIZE, TILE_SIZE];
@@ -192,7 +195,7 @@ namespace RetroLib.Platforms
                         for (int tx = 0; tx < TILE_SIZE; tx++)
                         {
                             int pixelX = x * TILE_SIZE + tx;
-                            int pixelY = y * TILE_SIZE + ty;
+                            int pixelY = actualY * TILE_SIZE + ty;
 
                             if (pixelX < bitmap.Width && pixelY < bitmap.Height)
                             {
@@ -204,7 +207,10 @@ namespace RetroLib.Platforms
                                 }
                                 tile[ty, tx] = palette.IndexOf(pixel);
                             }
-                            //TODO: else
+                            else
+                            {
+                                tile[ty, tx] = 0;
+                            }
                         }
                     }
 
