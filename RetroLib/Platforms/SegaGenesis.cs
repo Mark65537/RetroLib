@@ -38,7 +38,7 @@ namespace RetroLib.Platforms
             List<UInt16> firstPal9bit = _9bitPalette.ConvertColorsTo9bit(firstPal);
             List<UInt16> secondPal9bit = _9bitPalette.ConvertColorsTo9bit(secondPal);
 
-            uniqTiles.Add(GetUniqueTiles(bitmap, firstPal, HTileCount, VTileCount));//Layer B
+            uniqTiles.Add(GetUniqueTiles(bitmap, firstPal, HTileCount, VTileCount, isReverse: true));//Layer B
             if (secondPal != null && secondPal.Count > 0)
                 uniqTiles.Add(GetUniqueTiles(bitmap, secondPal, HTileCount, VTileCount));//Layer A
 
@@ -112,13 +112,31 @@ namespace RetroLib.Platforms
             HashSet<Color> first16 = new(16);
             HashSet<Color> remaining = new(16);
 
-            int count = 0;
+            //FIXME:
+            if (palette.Any(c => c.ToArgb() == Color.Black.ToArgb()))
+            {
+                first16.Add(Color.FromArgb(0, 0, 0));//черный цвет обязательно должен быть первым в палитре
+                var colorToRemove = palette.FirstOrDefault(c => c.ToArgb() == Color.Black.ToArgb());
+                if (colorToRemove != default)
+                {
+                    palette.Remove(colorToRemove);
+                }
+            }
+            if (palette.Any(c => c.ToArgb() == Color.White.ToArgb()))
+            {
+                first16.Add(Color.FromArgb(255, 255, 255));//белый цвет обязательно должен быть в первой палитре
+                var colorToRemove = palette.FirstOrDefault(c => c.ToArgb() == Color.White.ToArgb());
+                if (colorToRemove != default)
+                {
+                    palette.Remove(colorToRemove);
+                }
+            }
+
             foreach (var color in palette)
             {
-                if (count < 16)
+                if (first16.Count < 16)
                 {
                     first16.Add(color);
-                    count++;
                 }
                 else
                 {
@@ -165,7 +183,7 @@ namespace RetroLib.Platforms
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap, HashSet<Color> palette, int widthInTiles, int heightInTiles, bool isReverse = false)
         {
             List<Color> palList = [.. palette];
-            return GetUniqueTiles(bitmap, palList, widthInTiles, heightInTiles);
+            return GetUniqueTiles(bitmap, palList, widthInTiles, heightInTiles, isReverse);
         }
         public static List<int[,]> GetUniqueTiles(Bitmap bitmap, List<Color> palette, int widthInTiles, int heightInTiles, bool isReverse = false)
         {
