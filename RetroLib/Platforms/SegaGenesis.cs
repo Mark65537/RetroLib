@@ -45,7 +45,7 @@ namespace RetroLib.Platforms
 
             tileMap.Add(GetTileMap(bitmap, uniqTiles[0], firstPal));
             if (secondPal != null && secondPal.Count > 0)
-                tileMap.Add(GetTileMap(bitmap, uniqTiles[1], secondPal));
+                tileMap.Add(GetTileMap(bitmap, uniqTiles[1], secondPal, uniqTiles[0].Count));
 
             ushort Planes = 1;
             if (secondPal != null && secondPal.Count > 0)
@@ -86,6 +86,18 @@ namespace RetroLib.Platforms
                 WriteTileMapToBinary(tileMap[1], writer);
             WritePaletteToBinary(firstPal9bit, writer);
             WritePaletteToBinary(secondPal9bit, writer);
+        }
+
+        public static bool AllElementsEqual<T>(List<T> list)
+        {
+            if (list == null)
+                throw new ArgumentNullException(nameof(list));
+
+            if (list.Count == 0)
+                return true; // Пустой список считается с одинаковыми элементами
+
+            T firstElement = list[0];
+            return list.All(element => EqualityComparer<T>.Default.Equals(element, firstElement));
         }
 
         /// <summary>
@@ -249,6 +261,17 @@ namespace RetroLib.Platforms
             List<int> tileMap = [];
             List<Color> palList = [.. palette];
 
+            if (uniqueTiles.Count == 1)
+            {
+                for (int y = 0; y < bitmap.Height / TILE_SIZE; y++)
+                {
+                    for (int x = 0; x < bitmap.Width / TILE_SIZE; x++)
+                    {
+                        tileMap.Add((0 + offset));
+                    }
+                }
+                return tileMap;
+            }
 
             int widthInTiles = bitmap.Width / TILE_SIZE;
             int heightInTiles = bitmap.Height / TILE_SIZE;
