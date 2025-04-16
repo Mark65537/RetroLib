@@ -122,19 +122,7 @@ public class _9bitPalette
         return hexPaletteString;
     }
 
-    /// <summary>
-    /// Converts a RGB color to 9 bit format.
-    /// </summary>
-    /// <param name="color">Color to convert.</param>
-    /// <returns>9 bit color.</returns>
 
-    private static Color Convert9bitToColor(int color9bit)
-    {
-        int b = color9bit >> 9 & 0x7;
-        int g = color9bit >> 5 & 0x7;
-        int r = color9bit >> 1 & 0x7;
-        return Color.FromArgb(r << 5, g << 5, b << 5);
-    }
 
     /// <summary>
     /// Converts a palette of colors to 9 bit format.
@@ -169,10 +157,13 @@ public class _9bitPalette
     ///</summary>
     private static UInt16 ConvertColorTo9bit(Color color)
     {
-        return (ushort)(color.B >> 5 << 9 |
-                    color.G >> 5 << 5 |
-                        color.R >> 5 << 1);
+        int r = color.R / 16;
+        int g = color.G / 16;
+        int b = color.B / 16;
+
+        return (ushort)((r << 8) | (g << 4) | b);
     }
+
 
     /// <summary>
     /// Converts a list of 9 bit color values to a HashSet of Color objects.
@@ -191,18 +182,34 @@ public class _9bitPalette
     }
 
     /// <summary>
+    /// Converts a RGB color to 9 bit format.
+    /// </summary>
+    /// <param name="color">Color to convert.</param>
+    /// <returns>9 bit color.</returns>
+
+    private static Color Convert9bitToColor(int color9bit)
+    {
+        int b = color9bit >> 9 & 0x7;
+        int g = color9bit >> 5 & 0x7;
+        int r = color9bit >> 1 & 0x7;
+        return Color.FromArgb(r << 5, g << 5, b << 5);
+    }
+
+    /// <summary>
     /// Prints all RGB colors and their corresponding 9 bit color representation to the console.
     /// </summary>
     public static void PrintRGBto9bitSet()
     {
-        for (int r = 0; r < 256; r += 32) // Increment by 32 to simulate 3 bits for red.
+        for (int r = 0; r < 256; r += 16) // Increment by 32 to simulate 3 bits for red.
         {
-            for (int g = 0; g < 256; g += 32) // Increment by 32 to simulate 3 bits for green.
+            for (int g = 0; g < 256; g += 16) // Increment by 32 to simulate 3 bits for green.
             {
-                for (int b = 0; b < 256; b += 32) // Increment by 32 to simulate 3 bits for blue.
+                for (int b = 0; b < 256; b += 16) // Increment by 32 to simulate 3 bits for blue.
                 {
                     Color color = Color.FromArgb(r, g, b);
                     int color9bit = ConvertColorTo9bit(color);
+                    //Console.WriteLine(color);
+
                     Console.WriteLine($"RGB({r}, {g}, {b}) => 9bit: {color9bit:X3}");
                 }
             }
