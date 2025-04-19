@@ -113,23 +113,20 @@ namespace RetroLib.Platforms
             HashSet<Color> remaining = new(16);
 
             //FIXME:
-            if (palette.Any(c => c.ToArgb() == Color.Black.ToArgb()))
+            Color black = palette.FirstOrDefault(c => c.ToArgb() <= Color.FromArgb(15, 15, 15).ToArgb());
+
+            if (black.A != 0 || black.R != 0 || black.G != 0 || black.B != 0)
             {
                 first16.Add(Color.FromArgb(0, 0, 0));//черный цвет обязательно должен быть первым в палитре
-                var colorToRemove = palette.FirstOrDefault(c => c.ToArgb() == Color.Black.ToArgb());
-                if (colorToRemove != default)
-                {
-                    palette.Remove(colorToRemove);
-                }
+                palette.Remove(black);
             }
-            if (palette.Any(c => c.ToArgb() == Color.White.ToArgb()))
+
+            //NOTE: нужно для белых текстовых полей
+            Color white = palette.FirstOrDefault(c => c.ToArgb() >= Color.FromArgb(224, 224, 224).ToArgb());
+            if (white.A != 0 || white.R != 0 || white.G != 0 || white.B != 0)
             {
-                first16.Add(Color.FromArgb(255, 255, 255));//белый цвет обязательно должен быть в первой палитре
-                var colorToRemove = palette.FirstOrDefault(c => c.ToArgb() == Color.White.ToArgb());
-                if (colorToRemove != default)
-                {
-                    palette.Remove(colorToRemove);
-                }
+                first16.Add(white); // белый цвет обязательно должен быть в первой палитре
+                palette.Remove(white);
             }
 
             foreach (var color in palette)

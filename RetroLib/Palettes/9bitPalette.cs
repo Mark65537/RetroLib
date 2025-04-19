@@ -155,14 +155,13 @@ public class _9bitPalette
     ///    Overall, this algorithm takes an RGB color value, divides each component by 32, and combines the components into a 16-bit representation.
     ///</remarks>
     ///</summary>
-    private static UInt16 ConvertColorTo9bit(Color color)
+    public static UInt16 ConvertColorTo9bit(Color color)
     {
-        int r = color.R / 16;
-        int g = color.G / 16;
-        int b = color.B / 16;
-
-        return (ushort)((r << 8) | (g << 4) | b);
+        return (ushort)(color.B >> 5 << 9 |
+                        color.G >> 5 << 5 |
+                        color.R >> 5 << 1);
     }
+
 
 
     /// <summary>
@@ -200,11 +199,11 @@ public class _9bitPalette
     /// </summary>
     public static void PrintRGBto9bitSet()
     {
-        for (int r = 0; r < 256; r += 16) // Increment by 32 to simulate 3 bits for red.
+        for (int r = 0; r < 256; r += 32) // Increment by 32 to simulate 3 bits for red.
         {
-            for (int g = 0; g < 256; g += 16) // Increment by 32 to simulate 3 bits for green.
+            for (int g = 0; g < 256; g += 32) // Increment by 32 to simulate 3 bits for green.
             {
-                for (int b = 0; b < 256; b += 16) // Increment by 32 to simulate 3 bits for blue.
+                for (int b = 0; b < 256; b += 32) // Increment by 32 to simulate 3 bits for blue.
                 {
                     Color color = Color.FromArgb(r, g, b);
                     int color9bit = ConvertColorTo9bit(color);
@@ -214,5 +213,110 @@ public class _9bitPalette
                 }
             }
         }
+    }
+
+    public static void ConvertBmp(string bmpPath)
+    {
+        Bitmap original = new Bitmap(bmpPath);
+        Bitmap converted = new Bitmap(original.Width, original.Height);
+
+        for (int y = 0; y < original.Height; y++)
+        {
+            for (int x = 0; x < original.Width; x++)
+            {
+                Color color = original.GetPixel(x, y);
+
+                int r = (color.R / 16) * 16;
+                int g = (color.G / 16) * 16;
+                int b = (color.B / 16) * 16;
+
+                // Защита от выхода за пределы 255
+                if (r > 255) r = 240;
+                if (g > 255) g = 240;
+                if (b > 255) b = 240;
+
+                Color quantized = Color.FromArgb(255, r, g, b);
+                converted.SetPixel(x, y, quantized);
+            }
+        }
+
+        string output = Path.Combine(Path.GetDirectoryName(bmpPath)!,
+                                     Path.GetFileNameWithoutExtension(bmpPath) + "_9bit.png");//FIXME: 
+
+        converted.Save(output);
+    }
+
+    public static void ConvertBmp(string bmpPath, int maxPalSize)
+    {
+        Bitmap original = new Bitmap(bmpPath);
+        Bitmap converted = new Bitmap(original.Width, original.Height);
+
+        // 1. Построим 9-битовую палитру
+        Dictionary<Color, int> palette = [];
+
+        // 2. Подсчёт цветов + округление в 9 бит
+        List<(int x, int y, Color quantized)> pixels = [];
+
+        for (int y = 0; y < original.Height; y++)
+        {
+            for (int x = 0; x < original.Width; x++)
+            {
+                Color color = original.GetPixel(x, y);
+
+                int r = Math.Min(((color.R + 16) / 32) * 32, 224);
+                int g = Math.Min(((color.G + 16) / 32) * 32, 224);
+                int b = Math.Min(((color.B + 16) / 32) * 32, 224);
+
+                Color quantized = Color.FromArgb(255, r, g, b);
+                pixels.Add((x, y, quantized));
+
+                if (!palette.ContainsKey(quantized))
+                    palette[quantized] = 0;
+
+                palette[quantized]++;
+            }
+        }
+
+        // 3. Если палитра в пределах maxPalSize — используем как есть
+        List<Color> finalPalette;
+
+        if (palette.Count <= maxPalSize)
+        {
+            finalPalette = [.. palette.Keys];
+        }
+        else
+        {
+            // 4. Сокращаем палитру: берём top N самых частых цветов
+            finalPalette = [.. palette
+                .OrderByDescending(p => p.Value)
+                .Take(maxPalSize)
+                .Select(p => p.Key)];
+        }
+
+        // 5. Перерисовываем изображение с ближайшими цветами
+        for (int i = 0; i < pixels.Count; i++)
+        {
+            var (x, y, col) = pixels[i];
+
+            Color nearest = finalPalette
+                .OrderBy(p => ColorDistance(p, col))
+                .First();
+
+            converted.SetPixel(x, y, nearest);
+        }
+
+        string output = Path.Combine(Path.GetDirectoryName(bmpPath)!,
+                                     Path.GetFileNameWithoutExtension(bmpPath) + $"_9bit_{maxPalSize}.png");
+
+        converted.Save(output);
+    }
+
+    // Евклидово расстояние без alpha
+    private static int ColorDistance(Color c1, Color c2)
+    {
+        int dr = c1.R - c2.R;
+        int dg = c1.G - c2.G;
+        int db = c1.B - c2.B;
+        return dr * dr + dg * dg + db * db;
     }
 }
