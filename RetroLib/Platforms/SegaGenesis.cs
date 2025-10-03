@@ -330,7 +330,8 @@ namespace RetroLib.Platforms
 
                     // Находим индекс тайла с помощью специального сравнения
                     int tileIndex = FindTileIndex(uniqueTiles, tile);
-                    if (tileIndex < 0) tileIndex = 0 + offset;
+                    if (tileIndex < 0)
+                        tileIndex = 0 + offset;//?
                     tileMap.Add(tileIndex + offset);
                 }
             }
@@ -488,11 +489,41 @@ namespace RetroLib.Platforms
             ConvertBmpToChr(new Bitmap(inFilePath), outFilePath, segaImgType);
         }
 
+        public static void ConvertBmpToChr(Image img, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
+        {
+            ConvertBmpToChr(new Bitmap(img), outFilePath, segaImgType);
+        }
+
         public static void ConvertBmpToChr(Bitmap bmp, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
         {
             if (segaImgType == SegaImgType.screen)
             {
-                throw new Exception("Данный тип не поддерживается");
+
+                int HTileCount = bmp.Width / TILE_SIZE;
+                int VTileCount = bmp.Height / TILE_SIZE;
+
+                List<int[,]> uniqTiles;
+                List<int> tileMap;
+
+                HashSet<Color> palette = Palette.GetPalette(bmp);
+                if (palette.Count > 16)
+                {
+                    throw new Exception("Палитра содержит больше 16 цветов.");
+                }
+                List<UInt16> pal9bit = _9bitPalette.ConvertColorsTo9bit(palette);
+
+                uniqTiles = GetUniqueTiles(bmp, palette, HTileCount, VTileCount);
+
+                Console.WriteLine($"Количество уникальных тайлов: {uniqTiles.Count}");
+
+                tileMap = GetTileMap(bmp, uniqTiles, palette);
+
+
+                WriteTilesToBinary(uniqTiles, outFilePath);
+                WriteTileMapToBinary(tileMap, $"{outFilePath}.map");
+                WritePaletteToBinary(pal9bit, $"{outFilePath}.pal");
+
+                //throw new Exception("Данный тип не поддерживается");
                 //List<int[,]> tiles = ConvertBitmapToFontTiles(bmp);
                 //TODO добавить создание тайловой карты
                 //WriteTilesToBinary(tiles, outFilePath);
