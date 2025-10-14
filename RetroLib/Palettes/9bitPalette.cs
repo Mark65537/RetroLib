@@ -215,6 +215,22 @@ public class _9bitPalette
         }
     }
 
+    public static HashSet<Color> Get9bitPal()
+    {
+        HashSet<Color> palette = [];
+        for (int r = 0; r < 256; r += 32) // Increment by 32 to simulate 3 bits for red.
+        {
+            for (int g = 0; g < 256; g += 32) // Increment by 32 to simulate 3 bits for green.
+            {
+                for (int b = 0; b < 256; b += 32) // Increment by 32 to simulate 3 bits for blue.
+                {
+                    palette.Add(Color.FromArgb(r, g, b));
+                }
+            }
+        }
+        return palette;
+    }
+
     public static void ConvertBmp(string bmpPath)
     {
         Bitmap original = new Bitmap(bmpPath);
