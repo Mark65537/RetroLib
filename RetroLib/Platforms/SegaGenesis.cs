@@ -493,8 +493,7 @@ namespace RetroLib.Platforms
         {
             ConvertBmpToChr(new Bitmap(img), outFilePath, segaImgType);
         }
-
-        public static void ConvertBmpToChr(Bitmap bmp, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
+        public static List<int[,]> ConvertBmpToChr(Bitmap bmp, SegaImgType segaImgType = SegaImgType.screen)
         {
             if (segaImgType == SegaImgType.screen)
             {
@@ -510,14 +509,43 @@ namespace RetroLib.Platforms
                 {
                     throw new Exception("Палитра содержит больше 16 цветов.");
                 }
-                List<UInt16> pal9bit = _9bitPalette.ConvertColorsTo9bit(palette);
 
                 uniqTiles = GetUniqueTiles(bmp, palette, HTileCount, VTileCount);
 
                 Console.WriteLine($"Количество уникальных тайлов: {uniqTiles.Count}");
 
-                tileMap = GetTileMap(bmp, uniqTiles, palette);
+                return uniqTiles;
 
+            }
+            else if (segaImgType == SegaImgType.sprite)
+            {
+                throw new Exception("Данный тип не поддерживается");
+            }
+            else if (segaImgType == SegaImgType.font)
+            {
+                throw new Exception("Данный тип не поддерживается");
+            }
+            else
+            {
+                throw new Exception("Несуществующий тип");
+            }
+        }
+        public static void ConvertBmpToChr(Bitmap bmp, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
+        {
+            if (segaImgType == SegaImgType.screen)
+            {
+
+                List<int[,]> uniqTiles = ConvertBmpToChr(bmp, segaImgType);
+                List<int> tileMap;
+
+                HashSet<Color> palette = Palette.GetPalette(bmp);
+                if (palette.Count > 16)
+                {
+                    throw new Exception("Палитра содержит больше 16 цветов.");
+                }
+                List<UInt16> pal9bit = _9bitPalette.ConvertColorsTo9bit(palette);
+
+                tileMap = GetTileMap(bmp, uniqTiles, palette);
 
                 WriteTilesToBinary(uniqTiles, outFilePath);
                 WriteTileMapToBinary(tileMap, $"{outFilePath}.map");
