@@ -493,7 +493,7 @@ namespace RetroLib.Platforms
         {
             ConvertBmpToChr(new Bitmap(img), outFilePath, segaImgType);
         }
-        public static List<int[,]> ConvertBmpToChr(Bitmap bmp, SegaImgType segaImgType = SegaImgType.screen)
+        public static List<int[,]> ConvertBmpToChr(Bitmap bmp, SegaImgType segaImgType = SegaImgType.screen, HashSet<Color> palette = null)
         {
             if (segaImgType == SegaImgType.screen)
             {
@@ -504,7 +504,11 @@ namespace RetroLib.Platforms
                 List<int[,]> uniqTiles;
                 List<int> tileMap;
 
-                HashSet<Color> palette = Palette.GetPalette(bmp);
+                palette ??= Palette.GetPalette(bmp);
+                if (palette.Count < 0)
+                {
+                    palette = Palette.GetPalette(bmp);
+                }
                 if (palette.Count > 16)
                 {
                     throw new Exception("Палитра содержит больше 16 цветов.");
@@ -530,19 +534,25 @@ namespace RetroLib.Platforms
                 throw new Exception("Несуществующий тип");
             }
         }
-        public static void ConvertBmpToChr(Bitmap bmp, string outFilePath, SegaImgType segaImgType = SegaImgType.screen)
+
+        public static void ConvertBmpToChr(Bitmap bmp, string outFilePath, SegaImgType segaImgType = SegaImgType.screen, HashSet<Color> palette = null)
         {
             if (segaImgType == SegaImgType.screen)
             {
 
-                List<int[,]> uniqTiles = ConvertBmpToChr(bmp, segaImgType);
-                List<int> tileMap;
-
-                HashSet<Color> palette = Palette.GetPalette(bmp);
+                palette ??= Palette.GetPalette(bmp);
+                if (palette.Count < 0)
+                {
+                    palette = Palette.GetPalette(bmp);
+                }
                 if (palette.Count > 16)
                 {
                     throw new Exception("Палитра содержит больше 16 цветов.");
                 }
+
+                List<int[,]> uniqTiles = ConvertBmpToChr(bmp, segaImgType, palette);
+                List<int> tileMap;
+
                 List<UInt16> pal9bit = _9bitPalette.ConvertColorsTo9bit(palette);
 
                 tileMap = GetTileMap(bmp, uniqTiles, palette);
